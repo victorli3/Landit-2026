@@ -1,0 +1,398 @@
+@import "tailwindcss";
+
+:root {
+  --background: #fdfdfb;
+  --foreground: #121212;
+  --border: #e5e5e3;
+  --muted: #8a8a86;
+  --surface: #f5f5f3;
+  --accent: #121212;
+  --accent-foreground: #ffffff;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #e5e5e3;
+    --border: #262626;
+    --muted: #737373;
+    --surface: #141414;
+    --accent: #e5e5e3;
+    --accent-foreground: #0a0a0a;
+  }
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-border: var(--border);
+  --color-muted: var(--muted);
+  --color-surface: var(--surface);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+}
+
+.font-serif {
+  font-family: "Georgia", "Times New Roman", serif;
+}
+
+/* ── Landing page ───────────────────────────────── */
+
+.landing-page {
+  overflow-x: hidden;
+}
+
+.section-padding {
+  padding-top: 64px;
+  padding-bottom: 64px;
+}
+
+@media (min-width: 640px) {
+  .section-padding {
+    padding-top: 96px;
+    padding-bottom: 96px;
+  }
+}
+
+/* CTA button — always elevated + ring */
+.cta-primary {
+  box-shadow:
+    0 1px 3px color-mix(in srgb, var(--accent) 12%, transparent),
+    0 4px 16px color-mix(in srgb, var(--accent) 8%, transparent);
+  outline: 1.5px solid color-mix(in srgb, var(--accent) 18%, transparent);
+  outline-offset: 2px;
+  transition: transform 200ms ease, box-shadow 200ms ease, outline-color 200ms ease, opacity 200ms ease;
+}
+.cta-primary:hover {
+  transform: translateY(-2px) scale(1.02);
+  box-shadow:
+    0 4px 24px color-mix(in srgb, var(--accent) 28%, transparent),
+    0 8px 32px color-mix(in srgb, var(--accent) 12%, transparent);
+  outline-color: color-mix(in srgb, var(--accent) 35%, transparent);
+}
+.cta-primary:active {
+  transform: translateY(0) scale(0.98);
+}
+.cta-primary:disabled {
+  transform: none;
+  box-shadow: none;
+  outline-color: transparent;
+}
+
+/* Hero CTA subtle attention pulse */
+.cta-hero-pulse {
+  animation: heroCtaPulse 2.8s ease-in-out infinite;
+}
+@keyframes heroCtaPulse {
+  0%, 100% { box-shadow: 0 1px 3px color-mix(in srgb, var(--accent) 12%, transparent), 0 4px 16px color-mix(in srgb, var(--accent) 8%, transparent); }
+  50% { box-shadow: 0 2px 8px color-mix(in srgb, var(--accent) 22%, transparent), 0 6px 28px color-mix(in srgb, var(--accent) 16%, transparent); }
+}
+
+/* Secondary / ghost button */
+.cta-secondary {
+  transition: transform 200ms ease, box-shadow 200ms ease, background 200ms ease, border-color 200ms ease;
+}
+.cta-secondary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 12px color-mix(in srgb, var(--foreground) 6%, transparent);
+  background: color-mix(in srgb, var(--surface) 80%, transparent);
+  border-color: color-mix(in srgb, var(--foreground) 18%, transparent);
+}
+
+/* How-it-works cards */
+.how-card {
+  transition: transform 250ms ease, box-shadow 250ms ease, border-color 250ms ease;
+}
+.how-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 24px color-mix(in srgb, var(--foreground) 5%, transparent);
+  border-color: color-mix(in srgb, var(--foreground) 14%, transparent);
+}
+
+/* Section divider */
+.section-divider {
+  height: 1px;
+  max-width: 240px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--border) 50%, transparent),
+    transparent
+  );
+}
+
+/* Prepare panel */
+.prepare-card {
+  box-shadow: 0 0 40px color-mix(in srgb, var(--accent) 6%, transparent);
+}
+
+/* Dashboard role cards */
+.dashboard-card {
+  transition: transform 200ms ease, box-shadow 200ms ease, background 200ms ease;
+}
+.dashboard-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--foreground) 5%, transparent);
+  background: var(--surface);
+}
+
+/* Hero glow */
+.hero-glow {
+  box-shadow: 0 0 80px color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+/* Showcase soft background */
+.showcase-bg {
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--surface) 80%, transparent),
+    var(--surface)
+  );
+}
+
+/* Subtle float animation for showcase mock */
+@keyframes gentle-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+.showcase-float {
+  animation: gentle-float 5s ease-in-out infinite;
+}
+
+/* Fade-slide for criteria detail panel */
+@keyframes fadeSlideIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Role Hub modal ─────────────────────────── */
+
+/* Backdrop fade */
+@keyframes hubBackdropIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.hub-backdrop-enter {
+  animation: hubBackdropIn 300ms ease-out both;
+}
+
+/* Panel slide-up */
+@keyframes hubPanelIn {
+  from { opacity: 0; transform: translateY(16px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.hub-panel-enter {
+  animation: hubPanelIn 500ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Analytics column fade */
+@keyframes hubAnalyticsIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.hub-analytics-enter {
+  animation: hubAnalyticsIn 600ms ease-out 200ms both;
+}
+
+/* Animated bar fill */
+@keyframes hubBarGrow {
+  from { width: 0%; }
+}
+.hub-bar-fill {
+  animation: hubBarGrow 700ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  box-shadow: 0 0 8px color-mix(in srgb, var(--accent) 15%, transparent);
+}
+
+/* Active segment pill */
+.hub-segment-active {
+  background: var(--accent);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+/* Mode cards */
+.hub-mode-card {
+  cursor: pointer;
+  box-shadow: 0 1px 4px color-mix(in srgb, var(--foreground) 5%, transparent);
+  transition: transform 200ms ease, box-shadow 200ms ease, border-color 200ms ease;
+}
+.hub-mode-card:not(:disabled):hover {
+  border-color: color-mix(in srgb, var(--accent) 35%, transparent);
+  transform: translateY(-2px);
+  box-shadow:
+    0 4px 16px color-mix(in srgb, var(--accent) 12%, transparent),
+    0 8px 24px color-mix(in srgb, var(--foreground) 4%, transparent);
+}
+.hub-mode-card:not(:disabled):active {
+  transform: translateY(0);
+}
+
+/* Description textarea wrapper */
+.hub-description-box {
+  box-shadow: inset 0 2px 6px color-mix(in srgb, var(--foreground) 3%, transparent);
+  position: relative;
+}
+.hub-description-box::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 32px;
+  background: linear-gradient(to top, var(--surface), transparent);
+  border-radius: 0 0 0.75rem 0.75rem;
+  pointer-events: none;
+  opacity: 0.5;
+}
+
+/* Thin custom scrollbar */
+.hub-textarea::-webkit-scrollbar {
+  width: 4px;
+}
+.hub-textarea::-webkit-scrollbar-track {
+  background: transparent;
+}
+.hub-textarea::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 2px;
+}
+
+/* Ghost button hover glow */
+.hub-ghost-btn:hover {
+  box-shadow: 0 0 12px color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+/* Metric row hover arrow hint */
+.hub-metric-row {
+  cursor: default;
+}
+.hub-metric-row::after {
+  content: "›";
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  opacity: 0;
+  font-size: 14px;
+  color: var(--muted);
+  transition: opacity 200ms ease, transform 200ms ease;
+}
+.hub-metric-row {
+  position: relative;
+}
+.hub-metric-row:hover::after {
+  opacity: 0.5;
+  transform: translateY(-50%) translateX(2px);
+}
+
+/* ── Technical View ─────────────────────────── */
+
+.tech-view-container {
+  padding-bottom: 16px;
+}
+
+/* Skeleton shimmer */
+@keyframes techShimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.tech-skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--border) 25%,
+    color-mix(in srgb, var(--border) 60%, transparent) 50%,
+    var(--border) 75%
+  );
+  background-size: 200% 100%;
+  animation: techShimmer 1.6s ease-in-out infinite;
+}
+
+/* Overview card subtle glow */
+.tech-overview-card {
+  box-shadow: 0 0 40px color-mix(in srgb, var(--accent) 4%, transparent);
+  transition: box-shadow 300ms ease;
+}
+.tech-overview-card:hover {
+  box-shadow: 0 0 48px color-mix(in srgb, var(--accent) 7%, transparent);
+}
+
+/* Question card micro-interactions */
+.tech-question-card {
+  box-shadow: 0 1px 3px color-mix(in srgb, var(--foreground) 3%, transparent);
+}
+
+/* ── Background layer ───────────────────────── */
+
+/* Layer 2 (A): gradient drift animation */
+@keyframes bgDrift {
+  0%   { background-position: 0% 0%; }
+  50%  { background-position: 100% 100%; }
+  100% { background-position: 0% 0%; }
+}
+.bg-drift-animate {
+  animation: bgDrift 40s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .bg-drift-animate {
+    animation: none;
+  }
+}
+
+/* ── Navbar polish ──────────────────────────── */
+
+.nav-blur {
+  backdrop-filter: blur(12px) saturate(1.4);
+  -webkit-backdrop-filter: blur(12px) saturate(1.4);
+  background: color-mix(in srgb, var(--background) 75%, transparent);
+}
+
+.nav-link {
+  position: relative;
+  transition: color 200ms ease;
+}
+.nav-link::after {
+  content: "";
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: var(--foreground);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 250ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.nav-link:hover::after {
+  transform: scaleX(1);
+}
+
+/* ── Speech-to-text recording state ─────────── */
+
+/* Active-recording button glow ring */
+.stt-btn-active {
+  position: relative;
+  z-index: 0;
+}
+.stt-glow-ring {
+  position: absolute;
+  inset: -3px;
+  border-radius: 10px;
+  z-index: -1;
+  pointer-events: none;
+  animation: sttGlow 1.6s ease-in-out infinite;
+}
+@keyframes sttGlow {
+  0%, 100% {
+    box-shadow: 0 0 6px 1px rgba(239, 68, 68, 0.18);
+  }
+  50% {
+    box-shadow: 0 0 14px 3px rgba(239, 68, 68, 0.32);
+  }
+}
