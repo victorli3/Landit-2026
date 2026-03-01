@@ -1,52 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
-import OpenAI from "openai";
 
 export const runtime = "nodejs";
 
-let _openai: OpenAI | null = null;
-function getClient() {
-  if (!_openai) {
-    _openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-  }
-  return _openai;
+/* ── Score helpers ───────────────────────────────── */
+
+function clamp0to10(n: number) {
+  return Math.max(0, Math.min(10, n));
 }
 
-const SYSTEM_PROMPT = `You are a senior interview coach evaluating a candidate's answer to a behavioral or role-specific interview question.
+/** Modal returns 0-100, frontend expects 0-10 */
+function fromPct(pct: number | undefined) {
+  if (typeof pct !== "number" || Number.isNaN(pct)) return 0;
+  return clamp0to10(Number((pct / 10).toFixed(1)));
+}
 
-You will receive:
-- The job description the candidate is targeting
-- The interview question asked
-- The candidate's answer
-
-Score the answer on five dimensions (each 0-10 integer):
-1. structure – Does the answer follow a clear framework (e.g. STAR)?
-2. clarity – Is the answer easy to follow with no unnecessary jargon?
-3. impact – Does the answer demonstrate measurable results or meaningful outcomes?
-4. confidence – Does the answer sound assured and self-aware?
-5. concision – Is the answer focused without unnecessary filler?
-
-Also provide:
-- overall: a single 0-10 integer score (weighted average of the five dimensions)
-- suggestions: an array of 2-4 short, actionable coaching tips (strings)
-- improvedSample: a rewritten version of the answer that would score higher, using STAR format. Keep it concise (4-6 sentences).
-
-Return valid JSON matching this exact schema (no markdown, no extra keys):
-
-{
-  "overall": 7,
-  "radar": {
-    "structure": 6,
-    "clarity": 8,
-    "impact": 7,
-    "confidence": 7,
-    "concision": 8
-  },
-  "suggestions": [
-    "Add specific metrics to demonstrate impact.",
-    "Lead with the situation to set context faster."
-  ],
-  "improvedSample": "Situation: ... Action: ... Result: ..."
-}`;
+/* ── Route ───────────────────────────────────────── */
 
 export async function POST(req: NextRequest) {
   try {
@@ -59,34 +27,86 @@ export async function POST(req: NextRequest) {
     if (!question?.trim() || !answer?.trim()) {
       return NextResponse.json(
         { error: "question and answer are required" },
-        { status: 400 },
+        { status: 400 }
       );
     }
 
-    const completion = await getClient().chat.completions.create({
-      model: "gpt-4o",
-      temperature: 0.4,
-      response_format: { type: "json_object" },
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        {
-          role: "user",
-          content: [
-            `## Job Description\n${jobDescription}`,
-            `## Question\n${question}`,
-            `## Candidate's Answer\n${answer}`,
-          ].join("\n\n"),
-        },
-      ],
+    const modalEvaluateUrl = process.env.MODAL_EVALUATE_URL;
+    if (!modalEvaluateUrl) {
+      return NextResponse.json(
+        { error: "MODAL_EVALUATE_URL is not configured" },
+        { status: 500 }
+      );
+    }
+
+    /* ── Build the payload Modal expects ── */
+    const questionPayload = {
+      id: `q_${Date.now()}`,
+      text: question,
+      category: "Behavioral",
+      difficulty: "Medium" as const,
+      targetScores: {
+        relevance: 75,
+        depth: 75,
+        clarity: 75,
+        impact: 75,
+        consistency: 75,
+      },
+    };
+
+    const modalResponse = await fetch(modalEvaluateUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        question: questionPayload,
+        answer,
+        jobDescription: jobDescription ?? "",
+      }),
+      cache: "no-store",
     });
 
-    const raw = completion.choices[0]?.message?.content ?? "{}";
-    const parsed = JSON.parse(raw);
+    if (!modalResponse.ok) {
+      const errorText = await modalResponse.text();
+      console.error("[evaluate-answer] Modal error:", modalResponse.status, errorText);
+      return NextResponse.json(
+        { error: "AI service unavailable", detail: errorText },
+        { status: 502 }
+      );
+    }
 
-    // Attach timestamp
-    parsed.evaluatedAtIso = new Date().toISOString();
+    /* ── Adapt Modal's 0-100 response into frontend's 0-10 shape ── */
+    const data = await modalResponse.json();
+    const evalData = (data?.evaluation ?? data) as {
+      scores?: Record<string, number>;
+      suggestions?: string[];
+      improvedAnswer?: string;
+    };
+    const scores = evalData?.scores ?? {};
 
-    return NextResponse.json(parsed);
+    const structure = fromPct(scores.depth);
+    const clarity = fromPct(scores.clarity);
+    const impact = fromPct(scores.impact);
+    const confidence = fromPct(scores.relevance);
+    const concision = fromPct(scores.consistency);
+
+    const overall = clamp0to10(
+      Number(((structure + clarity + impact + confidence + concision) / 5).toFixed(1))
+    );
+
+    const result = {
+      overall,
+      radar: { structure, clarity, impact, confidence, concision },
+      suggestions: Array.isArray(evalData.suggestions)
+        ? evalData.suggestions.slice(0, 5)
+        : ["Try adding more specific details and measurable outcomes."],
+      improvedSample:
+        typeof evalData.improvedAnswer === "string" && evalData.improvedAnswer.trim()
+          ? evalData.improvedAnswer
+          : "No improved sample returned by the AI service.",
+      evaluatedAtIso: new Date().toISOString(),
+    };
+
+    return NextResponse.json(result);
   } catch (err: unknown) {
     const message =
       err instanceof Error ? err.message : "Evaluation failed";

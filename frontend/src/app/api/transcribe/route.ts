@@ -1,45 +1,59 @@
 import { NextRequest, NextResponse } from "next/server";
-import OpenAI from "openai";
-
-export const runtime = "nodejs";
-
-// Lazy-init so the build doesn't throw when OPENAI_API_KEY is absent.
-let _openai: OpenAI | null = null;
-function getClient() {
-  if (!_openai) {
-    _openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-  }
-  return _openai;
-}
 
 export async function POST(req: NextRequest) {
   try {
-    const formData = await req.formData();
-    const audioBlob = formData.get("audio");
+    const body = await req.json();
 
-    if (!audioBlob || !(audioBlob instanceof Blob)) {
+    const audio = body.audio;
+    const format = body.format ?? "webm";
+
+    if (!audio || typeof audio !== "string") {
       return NextResponse.json(
-        { error: "No audio file provided" },
-        { status: 400 },
+        { error: "audio is required and must be a base64-encoded string" },
+        { status: 400 }
       );
     }
 
-    // Convert the Blob into a File the SDK accepts.
-    const file = new File([audioBlob], "recording.webm", {
-      type: audioBlob.type || "audio/webm",
+    const modalTranscribeUrl = process.env.MODAL_TRANSCRIBE_URL;
+    if (!modalTranscribeUrl) {
+      return NextResponse.json(
+        { error: "MODAL_TRANSCRIBE_URL is not configured" },
+        { status: 500 }
+      );
+    }
+
+    const modalResponse = await fetch(modalTranscribeUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ audio, format }),
+      cache: "no-store",
     });
 
-    const transcription = await getClient().audio.transcriptions.create({
-      model: "whisper-1",
-      file,
-      language: "en",
-    });
+    if (!modalResponse.ok) {
+      const errorText = await modalResponse.text();
+      console.error("Modal transcribe error:", modalResponse.status, errorText);
+      return NextResponse.json(
+        { error: "Transcription service unavailable", detail: errorText },
+        { status: 502 }
+      );
+    }
 
-    return NextResponse.json({ text: transcription.text });
+    const data = await modalResponse.json();
+
+    if (data.error) {
+      return NextResponse.json(
+        { error: data.error },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({ text: data.text ?? "" });
   } catch (err: unknown) {
-    const message =
-      err instanceof Error ? err.message : "Transcription failed";
-    console.error("[whisper] transcription error:", message);
-    return NextResponse.json({ error: message }, { status: 500 });
+    const message = err instanceof Error ? err.message : "Unknown error";
+    console.error("Transcribe error:", err);
+    return NextResponse.json(
+      { error: "Internal server error", detail: message },
+      { status: 500 }
+    );
   }
 }

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { transcribeAudio } from "@/lib/api";
 
 type Props = {
   /** Called with the full transcribed text when recording stops. */
@@ -19,10 +20,11 @@ function fmtTime(secs: number) {
 /* ── component ───────────────────────────────── */
 
 /**
- * Record → Stop → Transcribe (OpenAI Whisper).
+ * Record → Stop → Transcribe (Whisper on Modal GPU).
  *
- * Uses MediaRecorder to capture audio, then sends it to
- * /api/transcribe which calls Whisper. No Web Speech API.
+ * Uses MediaRecorder to capture audio, then sends it via
+ * transcribeAudio() which base64-encodes and sends to
+ * /api/transcribe → Modal Whisper endpoint.
  */
 export function SpeechToTextButton({ onText }: Props) {
   const [status, setStatus] = useState<
@@ -100,29 +102,16 @@ export function SpeechToTextButton({ onText }: Props) {
 
         setStatus("transcribing");
         try {
-          const form = new FormData();
-          form.append("audio", blob, "recording.webm");
-
-          const res = await fetch("/api/transcribe", {
-            method: "POST",
-            body: form,
-          });
-
-          if (!res.ok) {
-            const body = await res.text().catch(() => "");
-            console.warn(
-              `[STT] server responded ${res.status} — ${body.slice(0, 200) || "(empty body)"}`,
-            );
-            setStatus("idle");
-            return;
-          }
-
-          const { text } = (await res.json()) as { text: string };
+          // Uses api.ts transcribeAudio: base64-encodes the blob,
+          // sends JSON to /api/transcribe → Modal Whisper GPU endpoint
+          const text = await transcribeAudio(blob);
           if (text?.trim()) {
             onText(text.trim());
           }
         } catch (err) {
-          console.error("[STT] network error:", err);
+          console.error("[STT] transcription error:", err);
+          setError("Transcription failed");
+          setTimeout(() => setError(null), 3_000);
         } finally {
           setStatus("idle");
         }
@@ -136,7 +125,6 @@ export function SpeechToTextButton({ onText }: Props) {
       console.error("[STT] mic access denied:", err);
       setError("Mic access denied");
       setStatus("idle");
-      // Auto-dismiss error after 3s
       setTimeout(() => setError(null), 3_000);
     }
   }, [onText, startTimer, stopTimer]);
@@ -185,7 +173,6 @@ export function SpeechToTextButton({ onText }: Props) {
           <motion.button
             type="button"
             onClick={isRecording ? stop : start}
-            /* micro-bounce on recording start */
             animate={
               isRecording
                 ? { scale: [1, 1.04, 1] }
@@ -198,15 +185,10 @@ export function SpeechToTextButton({ onText }: Props) {
                 : "inline-flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
             }
           >
-            {/* Pulsing glow ring (recording only) */}
             {isRecording && (
               <span className="stt-glow-ring" aria-hidden="true" />
             )}
-
-            {/* Icon */}
             {isRecording ? <MicOnIcon /> : <MicOffIcon />}
-
-            {/* Label */}
             {isRecording ? "Stop recording" : "Record answer"}
           </motion.button>
 
@@ -220,7 +202,6 @@ export function SpeechToTextButton({ onText }: Props) {
                 transition={{ duration: 0.25 }}
                 className="flex items-center gap-2"
               >
-                {/* Pulsing recording dot */}
                 <motion.span
                   animate={{
                     scale: [1, 1.35, 1],
@@ -234,13 +215,9 @@ export function SpeechToTextButton({ onText }: Props) {
                   className="inline-block h-2 w-2 rounded-full bg-red-400"
                   aria-hidden="true"
                 />
-
-                {/* mm:ss timer */}
                 <span className="tabular-nums text-sm font-semibold text-red-400 select-none whitespace-nowrap">
                   {fmtTime(elapsed)}
                 </span>
-
-                {/* Animated equalizer bars */}
                 <div className="flex items-end gap-[2px] h-3.5 ml-1" aria-hidden="true">
                   {[0, 0.15, 0.3].map((delay) => (
                     <motion.div
@@ -269,15 +246,7 @@ export function SpeechToTextButton({ onText }: Props) {
 
 function MicOffIcon() {
   return (
-    <svg
-      className="h-4 w-4"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
+    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
       <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
       <line x1="12" x2="12" y1="19" y2="22" />
@@ -287,15 +256,7 @@ function MicOffIcon() {
 
 function MicOnIcon() {
   return (
-    <svg
-      className="h-4 w-4"
-      viewBox="0 0 24 24"
-      fill="currentColor"
-      stroke="currentColor"
-      strokeWidth="1"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
+    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round">
       <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
       <path d="M19 10v2a7 7 0 0 1-14 0v-2" fill="none" strokeWidth="2" />
       <line x1="12" x2="12" y1="19" y2="22" fill="none" strokeWidth="2" />
@@ -305,24 +266,9 @@ function MicOnIcon() {
 
 function Spinner() {
   return (
-    <svg
-      className="h-4 w-4 animate-spin text-muted"
-      viewBox="0 0 24 24"
-      fill="none"
-    >
-      <circle
-        className="opacity-25"
-        cx="12"
-        cy="12"
-        r="10"
-        stroke="currentColor"
-        strokeWidth="4"
-      />
-      <path
-        className="opacity-75"
-        fill="currentColor"
-        d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
-      />
+    <svg className="h-4 w-4 animate-spin text-muted" viewBox="0 0 24 24" fill="none">
+      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
     </svg>
   );
 }
